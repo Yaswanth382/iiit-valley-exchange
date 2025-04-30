@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,7 +13,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Search, Filter, Grid3X3, List } from "lucide-react";
+import { PlusCircle, Search, Filter, Grid3X3, List } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -233,11 +233,19 @@ const Products = () => {
       <main className="flex-grow bg-gray-50">
         <div className="container py-8 px-4 sm:px-6 lg:px-8">
           {/* Page header */}
-          <div className="pb-6 border-b border-gray-200">
-            <h1 className="text-3xl font-bold text-gray-900">Products</h1>
-            <p className="mt-1 text-gray-500">
-              Browse products available for sale on Campus Market
-            </p>
+          <div className="flex justify-between items-center pb-6 border-b border-gray-200">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Products</h1>
+              <p className="mt-1 text-gray-500">
+                Browse products available for sale on Campus Market
+              </p>
+            </div>
+            <Link to="/create-listing">
+              <Button className="bg-campus-primary hover:bg-campus-dark gap-2">
+                <PlusCircle className="h-4 w-4" />
+                <span>Sell an Item</span>
+              </Button>
+            </Link>
           </div>
 
           {/* Search and filter bar */}
@@ -416,9 +424,9 @@ const Products = () => {
               ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedProducts.map((product) => (
-                    <a
+                    <Link
                       key={product.id}
-                      href={`/product/${product.id}`}
+                      to={`/product/${product.id}`}
                       className="group"
                     >
                       <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md h-full flex flex-col">
@@ -458,15 +466,15 @@ const Products = () => {
                           </div>
                         </div>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               ) : (
                 <div className="space-y-4">
                   {sortedProducts.map((product) => (
-                    <a
+                    <Link
                       key={product.id}
-                      href={`/product/${product.id}`}
+                      to={`/product/${product.id}`}
                       className="group"
                     >
                       <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
@@ -515,7 +523,7 @@ const Products = () => {
                           </div>
                         </div>
                       </div>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               )}
