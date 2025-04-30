@@ -1,134 +1,203 @@
 
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { 
-  ArrowLeft, 
-  ChevronLeft, 
-  ChevronRight, 
-  Heart, 
-  MessageSquare, 
-  Share, 
-  ThumbsDown, 
-  ThumbsUp
-} from "lucide-react";
-
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, MapPin, Share, Edit, Trash2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@/components/ui/hover-card";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Sample product data (would come from API in a real app)
-const productDetailsData = {
-  id: 5,
-  title: "Operating Systems Concepts Book",
-  description: "Used for CS3510 Operating Systems course. Excellent condition with minor highlighting in the first few chapters. Selling because I've completed the course. Includes all the exercise solutions as a bonus PDF.",
-  price: 600,
-  category: "Books",
-  condition: "Good",
-  images: [
-    "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=1536",
-    "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&q=80&w=1536",
-    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=1536",
-  ],
-  seller: {
-    id: 101,
-    name: "Karthik Reddy",
-    rating: 4.8,
-    joinedDate: "August 2022",
-    image: null, // placeholder for avatar
-    department: "Computer Science",
-    responseRate: "95%",
-  },
-  isNegotiable: true,
-  pickupLocation: "Boys Hostel Block C, Room 304",
-  postedDate: "2025-04-10T10:30:00Z",
-  views: 45,
-  interested: 3,
+type ProductImage = {
+  id: string;
+  image_url: string;
 };
 
-// Similar products data
-const similarProducts = [
-  {
-    id: 2,
-    title: "Data Structures Textbook",
-    price: 550,
-    image: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&q=80&w=1536",
-  },
-  {
-    id: 10,
-    title: "Computer Networks Textbook",
-    price: 550,
-    image: "https://images.unsplash.com/photo-1544391591-51cdca0a6c4e?auto=format&fit=crop&q=80&w=1536",
-  },
-  {
-    id: 15,
-    title: "Database Management Systems",
-    price: 500,
-    image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=1536",
-  },
-];
+type Product = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  condition: string;
+  is_negotiable: boolean;
+  pickup_location: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  profiles: {
+    id: string;
+    full_name: string;
+    student_id: string | null;
+    phone_number: string | null;
+    hostel_details: string | null;
+  };
+  product_images: ProductImage[];
+};
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isInterestedLoading, setIsInterestedLoading] = useState(false);
-  const [isMessageLoading, setIsMessageLoading] = useState(false);
+  const [currentImage, setCurrentImage] = useState(0);
+  const { user } = useAuth();
 
-  // In a real app, fetch product details based on the ID
-  const product = productDetailsData; // This would be from an API
+  // Fetch product data
+  const { data: product, isLoading, error } = useQuery({
+    queryKey: ["product", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          profiles:user_id (*),
+          product_images (*)
+        `)
+        .eq("id", id)
+        .single();
 
-  // Format date
-  const formattedDate = new Date(product.postedDate).toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+      if (error) throw error;
+      return data as Product;
+    },
+    enabled: !!id,
   });
 
-  // Handle marking interest
-  const handleMarkInterested = () => {
-    setIsInterestedLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      toast.success("You have shown interest in this product");
-      setIsInterestedLoading(false);
-    }, 1000);
+  // Delete product mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!product) return;
+
+      // Delete the product (cascade will take care of images)
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", product.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Product successfully deleted");
+      navigate("/products");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete product: ${error instanceof Error ? error.message : "Unknown error"}`);
+    },
+  });
+
+  const handleDelete = async () => {
+    deleteMutation.mutate();
   };
 
-  // Handle messaging seller
-  const handleMessageSeller = () => {
-    setIsMessageLoading(true);
-    // Simulate API call or navigation to chat
-    setTimeout(() => {
-      toast.success("Message request sent to seller");
-      setIsMessageLoading(false);
-    }, 1000);
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-campus-primary mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading product details...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !product) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Navbar />
+        <main className="flex-grow py-12 px-4 sm:px-6 lg:px-8">
+          <div className="bg-white p-8 rounded-lg shadow-md text-center">
+            <h1 className="text-2xl font-bold text-red-500 mb-4">Product Not Found</h1>
+            <p className="text-gray-600 mb-6">
+              The product you're looking for might have been removed or doesn't exist.
+            </p>
+            <Link to="/products">
+              <Button>Back to Products</Button>
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Check if user is the owner of the product
+  const isOwner = user?.id === product.user_id;
+
+  // Format the date
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+  
+  // Get WhatsApp link
+  const getWhatsappLink = () => {
+    if (!product.profiles?.phone_number) return "#";
+    
+    const message = `Hello, I'm interested in your listing: ${product.title} on IIIT RKV Campus Market.`;
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Format phone number to remove spaces and ensure it has international format
+    const formattedNumber = product.profiles.phone_number.startsWith('+') 
+      ? product.profiles.phone_number.replace(/\s+/g, '') 
+      : '+91' + product.profiles.phone_number.replace(/\s+/g, '');
+      
+    return `https://wa.me/${formattedNumber.replace('+', '')}?text=${encodedMessage}`;
   };
 
-  // Handle sharing product
-  const handleShare = () => {
-    // In a real app, this would open a share dialog or copy link to clipboard
-    toast.success("Link copied to clipboard!");
+  // Share functionality
+  const handleShare = async () => {
+    const shareData = {
+      title: `${product.title} - Campus Market`,
+      text: `Check out this ${product.title} for ₹${product.price} on Campus Market`,
+      url: window.location.href,
+    };
+    
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success("Link copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
   };
 
-  // Handle adding to wishlist
-  const handleAddToWishlist = () => {
-    toast.success("Added to wishlist");
+  // Manage image carousel
+  const handlePrevImage = () => {
+    setCurrentImage((prev) => 
+      prev === 0 ? product.product_images.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    setCurrentImage((prev) => 
+      prev === product.product_images.length - 1 ? 0 : prev + 1
+    );
   };
 
   return (
@@ -136,295 +205,197 @@ const ProductDetail = () => {
       <Navbar />
       <main className="flex-grow bg-gray-50">
         <div className="container py-8 px-4 sm:px-6 lg:px-8">
-          {/* Back button */}
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate(-1)} 
-            className="mb-6 group"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Back to listings
-          </Button>
+          {/* Breadcrumb navigation */}
+          <nav className="flex mb-6 text-sm">
+            <ol className="flex items-center space-x-2">
+              <li>
+                <Link to="/" className="text-gray-500 hover:text-gray-700">
+                  Home
+                </Link>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li>
+                <Link to="/products" className="text-gray-500 hover:text-gray-700">
+                  Products
+                </Link>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li className="text-campus-primary font-medium truncate">
+                {product.title}
+              </li>
+            </ol>
+          </nav>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Product images */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-                <div className="relative aspect-[4/3]">
-                  <Carousel className="w-full">
-                    <CarouselContent>
-                      {product.images.map((image, index) => (
-                        <CarouselItem key={index}>
-                          <div className="flex aspect-[4/3] items-center justify-center p-1">
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-6">
+              {/* Product images carousel */}
+              <div className="space-y-4">
+                {product.product_images && product.product_images.length > 0 ? (
+                  <>
+                    <Carousel>
+                      <CarouselContent>
+                        {product.product_images.map((image, index) => (
+                          <CarouselItem key={index}>
+                            <div className="relative aspect-square rounded-md overflow-hidden">
+                              <img
+                                src={image.image_url}
+                                alt={`${product.title} - image ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      <CarouselPrevious className="left-2" />
+                      <CarouselNext className="right-2" />
+                    </Carousel>
+                    
+                    {/* Thumbnails */}
+                    {product.product_images.length > 1 && (
+                      <div className="flex space-x-2 overflow-x-auto py-2">
+                        {product.product_images.map((image, index) => (
+                          <button
+                            key={index}
+                            onClick={() => setCurrentImage(index)}
+                            className={`rounded-md overflow-hidden border-2 flex-shrink-0 
+                              ${currentImage === index ? 'border-campus-primary' : 'border-transparent'}`}
+                          >
                             <img
-                              src={image}
-                              alt={`${product.title} - image ${index + 1}`}
-                              className="w-full h-full object-cover rounded-md"
+                              src={image.image_url}
+                              alt={`Thumbnail ${index + 1}`}
+                              className="w-16 h-16 object-cover"
                             />
-                          </div>
-                        </CarouselItem>
-                      ))}
-                    </CarouselContent>
-                    <CarouselPrevious className="left-4" />
-                    <CarouselNext className="right-4" />
-                  </Carousel>
-                </div>
-
-                {/* Thumbnail navigation */}
-                <div className="flex justify-center p-4 gap-2 overflow-x-auto">
-                  {product.images.map((image, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${
-                        currentImageIndex === index
-                          ? "border-campus-primary"
-                          : "border-transparent"
-                      }`}
-                    >
-                      <img
-                        src={image}
-                        alt={`${product.title} thumbnail ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Product description */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Description</h2>
-                <p className="text-gray-700 whitespace-pre-line">{product.description}</p>
-                
-                <Separator className="my-6" />
-                
-                {/* Product details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Category</h3>
-                    <p className="text-gray-900">{product.category}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Condition</h3>
-                    <p className="text-gray-900">{product.condition}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Pickup Location</h3>
-                    <p className="text-gray-900">{product.pickupLocation}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Posted Date</h3>
-                    <p className="text-gray-900">{formattedDate}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Similar products */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Similar Products
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {similarProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="rounded-md overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-shadow group cursor-pointer"
-                      onClick={() => navigate(`/product/${product.id}`)}
-                    >
-                      <div className="aspect-[4/3] overflow-hidden">
-                        <img
-                          src={product.image}
-                          alt={product.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
+                          </button>
+                        ))}
                       </div>
-                      <div className="p-3">
-                        <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
-                          {product.title}
-                        </h3>
-                        <p className="text-campus-primary font-bold mt-1">
-                          ₹{product.price}
-                        </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="aspect-square rounded-md bg-gray-100 flex items-center justify-center">
+                    <p className="text-gray-400">No images available</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Product details */}
+              <div className="flex flex-col">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{product.title}</h1>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Badge variant="outline">{product.category}</Badge>
+                      <Badge className="bg-campus-primary">{product.condition}</Badge>
+                      {product.is_negotiable && <Badge variant="outline">Negotiable</Badge>}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleShare}
+                    aria-label="Share"
+                  >
+                    <Share className="h-5 w-5" />
+                  </Button>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-3xl font-bold text-campus-primary">₹{product.price}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Listed on {formatDate(product.created_at)}
+                  </p>
+                </div>
+
+                <div className="mt-6">
+                  <h3 className="font-semibold text-lg mb-2">Description</h3>
+                  <p className="text-gray-700 whitespace-pre-line">{product.description}</p>
+                </div>
+                
+                {product.pickup_location && (
+                  <div className="mt-6 flex items-start">
+                    <MapPin className="h-5 w-5 text-gray-400 mr-2 mt-0.5" />
+                    <div>
+                      <h3 className="font-semibold">Pickup Location</h3>
+                      <p className="text-gray-700">{product.pickup_location}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6">
+                  <h3 className="font-semibold text-lg mb-2">Seller Information</h3>
+                  <div className="flex items-center">
+                    <div className="bg-campus-primary/10 rounded-full p-2 mr-3">
+                      <div className="w-10 h-10 rounded-full bg-campus-primary text-white flex items-center justify-center text-lg font-medium">
+                        {product.profiles?.full_name?.charAt(0) || "?"}
                       </div>
                     </div>
-                  ))}
+                    <div>
+                      <p className="font-medium">{product.profiles?.full_name || "Unknown"}</p>
+                      {product.profiles?.student_id && (
+                        <p className="text-sm text-gray-500">
+                          {product.profiles.student_id}
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Sidebar with price, seller info, actions */}
-            <div className="space-y-6">
-              {/* Price and actions */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h1 className="text-2xl font-bold text-gray-900 line-clamp-2">
-                    {product.title}
-                  </h1>
-                </div>
-                
-                <div className="flex items-baseline mb-6">
-                  <span className="text-3xl font-bold text-campus-primary">
-                    ₹{product.price}
-                  </span>
-                  {product.isNegotiable && (
-                    <Badge variant="outline" className="ml-2">
-                      Negotiable
-                    </Badge>
+                <div className="mt-8 flex flex-col md:flex-row gap-4">
+                  {isOwner ? (
+                    <>
+                      <Link to={`/edit-listing/${product.id}`} className="flex-1">
+                        <Button variant="outline" className="w-full gap-2">
+                          <Edit className="h-4 w-4" />
+                          Edit Listing
+                        </Button>
+                      </Link>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" className="w-full gap-2">
+                            <Trash2 className="h-4 w-4" />
+                            Delete Listing
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. This will permanently delete your
+                              listing and remove your data from our servers.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={handleDelete}
+                              className="bg-red-600 text-white hover:bg-red-700"
+                            >
+                              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  ) : (
+                    <a 
+                      href={getWhatsappLink()} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full"
+                    >
+                      <Button className="w-full bg-green-600 hover:bg-green-700 gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Contact Seller
+                      </Button>
+                    </a>
                   )}
                 </div>
 
-                <div className="flex flex-col gap-4">
-                  <Button
-                    onClick={handleMarkInterested}
-                    className="w-full"
-                    disabled={isInterestedLoading}
-                  >
-                    <ThumbsUp className="mr-2 h-4 w-4" />
-                    {isInterestedLoading ? "Processing..." : "I'm Interested"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={handleMessageSeller}
-                    className="w-full"
-                    disabled={isMessageLoading}
-                  >
-                    <MessageSquare className="mr-2 h-4 w-4" />
-                    {isMessageLoading ? "Sending..." : "Message Seller"}
-                  </Button>
-                  <div className="flex gap-4 mt-2">
-                    <Button
-                      variant="ghost"
-                      onClick={handleAddToWishlist}
-                      className="flex-1"
-                    >
-                      <Heart className="mr-2 h-4 w-4" />
-                      Wishlist
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={handleShare}
-                      className="flex-1"
-                    >
-                      <Share className="mr-2 h-4 w-4" />
-                      Share
-                    </Button>
-                  </div>
+                <div className="mt-4 text-center">
+                  <Link to="/products" className="text-campus-primary hover:underline inline-flex items-center">
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Back to Products
+                  </Link>
                 </div>
-
-                <Separator className="my-6" />
-
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>{product.views} views</span>
-                  <span>{product.interested} interested</span>
-                </div>
-              </div>
-
-              {/* Seller information */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Seller Information
-                </h2>
-                <div className="flex items-center">
-                  <HoverCard>
-                    <HoverCardTrigger asChild>
-                      <div className="flex items-center cursor-pointer">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={product.seller.image || ""} alt={product.seller.name} />
-                          <AvatarFallback>{product.seller.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">{product.seller.name}</p>
-                          <div className="flex items-center">
-                            <div className="flex">
-                              {[...Array(5)].map((_, i) => (
-                                <span
-                                  key={i}
-                                  className={`text-xs ${
-                                    i < Math.floor(product.seller.rating)
-                                      ? "text-yellow-400"
-                                      : "text-gray-300"
-                                  }`}
-                                >
-                                  ★
-                                </span>
-                              ))}
-                            </div>
-                            <span className="ml-1 text-xs text-gray-500">
-                              ({product.seller.rating})
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </HoverCardTrigger>
-                    <HoverCardContent className="w-80">
-                      <div className="flex justify-between space-x-4">
-                        <Avatar>
-                          <AvatarImage src={product.seller.image || ""} />
-                          <AvatarFallback>{product.seller.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-semibold">{product.seller.name}</h4>
-                          <p className="text-xs text-gray-500">
-                            {product.seller.department}
-                          </p>
-                          <div className="flex items-center pt-1">
-                            <span className="text-xs text-gray-500 mr-2">
-                              Member since {product.seller.joinedDate}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <span className="text-gray-500">Response rate:</span>
-                          <p>{product.seller.responseRate}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Rating:</span>
-                          <div className="flex items-center">
-                            <span className="text-yellow-400 mr-1">★</span>
-                            <p>{product.seller.rating}/5</p>
-                          </div>
-                        </div>
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                </div>
-                
-                <Separator className="my-4" />
-                
-                <Button variant="outline" onClick={handleMessageSeller} className="w-full">
-                  Contact Seller
-                </Button>
-              </div>
-
-              {/* Safety tips */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                  Safety Tips
-                </h2>
-                <ul className="text-sm text-gray-600 space-y-2">
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2">•</span>
-                    Meet in a public place on campus
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2">•</span>
-                    Inspect the item before paying
-                  </li>
-                  <li className="flex items-start">
-                    <span className="text-green-500 mr-2">•</span>
-                    Never share personal financial information
-                  </li>
-                </ul>
-                <Button 
-                  variant="link" 
-                  className="mt-2 p-0 h-auto text-campus-primary" 
-                  onClick={() => navigate("/help")}
-                >
-                  View all safety guidelines
-                </Button>
               </div>
             </div>
           </div>

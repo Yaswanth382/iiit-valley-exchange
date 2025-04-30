@@ -6,6 +6,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusCircle, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   Form,
@@ -58,6 +60,7 @@ const conditions = ["New", "Like New", "Good", "Used", "Fair"];
 
 const CreateListing = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [images, setImages] = useState<File[]>([]);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,21 +123,69 @@ const CreateListing = () => {
       return;
     }
 
+    if (!user) {
+      toast.error("You must be logged in to create a listing");
+      navigate("/login");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // In a real app, you would upload images to a server and get URLs back
-      // Then create the listing with those URLs
+      // 1. Insert product data
+      const { data: productData, error: productError } = await supabase
+        .from('products')
+        .insert({
+          title: values.title,
+          description: values.description,
+          price: values.price,
+          category: values.category,
+          condition: values.condition,
+          is_negotiable: values.isNegotiable,
+          pickup_location: values.pickupLocation || null,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (productError) throw productError;
       
-      // For now, simulate a successful creation
-      setTimeout(() => {
-        toast.success("Product listing created successfully!");
-        navigate("/products");
-        setIsSubmitting(false);
-      }, 1500);
-    } catch (error) {
+      // 2. Upload images and create product_images records
+      const productId = productData.id;
+      const uploadPromises = images.map(async (image, index) => {
+        const filePath = `products/${productId}/${Date.now()}-${index}`;
+        
+        // Upload file to storage
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, image);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
+        
+        // Create product_images record
+        const { error: imageError } = await supabase
+          .from('product_images')
+          .insert({
+            product_id: productId,
+            image_url: urlData.publicUrl
+          });
+        
+        if (imageError) throw imageError;
+      });
+      
+      await Promise.all(uploadPromises);
+      
+      toast.success("Product listing created successfully!");
+      navigate("/products");
+    } catch (error: any) {
       console.error("Error creating listing:", error);
-      toast.error("Failed to create listing. Please try again.");
+      toast.error(error.message || "Failed to create listing. Please try again.");
+    } finally {
       setIsSubmitting(false);
     }
   };

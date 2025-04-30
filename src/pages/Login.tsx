@@ -1,45 +1,32 @@
 
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signIn } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login process
-    setTimeout(() => {
+
+    try {
+      await signIn(email, password);
+      // Navigation is handled inside signIn function
+    } catch (error) {
+      // Error is handled in the signIn function
+    } finally {
       setIsLoading(false);
-      
-      // Basic validation
-      if (!email.endsWith('@iiitrkvalley.ac.in')) {
-        toast({
-          title: "Error",
-          description: "Please use your IIIT RK Valley email address",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      toast({
-        title: "Success",
-        description: "You have been logged in successfully",
-      });
-      
-      // In a real app, we would navigate to the home page or dashboard
-      // after successful login. For now, we just show a toast.
-    }, 2000);
+    }
   };
 
   return (
@@ -49,43 +36,46 @@ const Login = () => {
         <div className="w-full max-w-md">
           <div className="bg-white py-8 px-6 shadow-lg rounded-lg">
             <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Welcome back</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Welcome Back</h1>
               <p className="mt-2 text-gray-600">
-                Sign in to your Campus Market account
+                Sign in to continue to Campus Market
               </p>
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email Address</Label>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
-                  placeholder="your.name@iiitrkvalley.ac.in"
+                  autoComplete="email"
+                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                  className="w-full"
+                  placeholder="you@iiitrkvalley.ac.in"
                 />
               </div>
               
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
-                  <Link to="/forgot-password" className="text-sm text-campus-primary hover:text-campus-dark">
+                  <Link
+                    to="/forgot-password"
+                    className="text-sm font-medium text-campus-primary hover:text-campus-dark"
+                  >
                     Forgot password?
                   </Link>
                 </div>
                 <Input
                   id="password"
+                  name="password"
                   type="password"
-                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  required
-                  autoComplete="current-password"
-                  className="w-full"
+                  placeholder="••••••••"
                 />
               </div>
               
@@ -94,15 +84,18 @@ const Login = () => {
                 className="w-full bg-campus-primary hover:bg-campus-dark"
                 disabled={isLoading}
               >
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
             
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{" "}
-                <Link to="/register" className="font-medium text-campus-primary hover:text-campus-dark">
-                  Register now
+                <Link
+                  to="/register"
+                  className="font-medium text-campus-primary hover:text-campus-dark"
+                >
+                  Sign up
                 </Link>
               </p>
             </div>
@@ -110,10 +103,9 @@ const Login = () => {
           
           <div className="mt-8 text-center">
             <p className="text-xs text-gray-500">
-              By signing in, you agree to our{" "}
-              <Link to="/terms" className="underline">Terms of Service</Link>{" "}
-              and{" "}
-              <Link to="/privacy" className="underline">Privacy Policy</Link>
+              Only students of IIIT RK Valley can access this platform.
+              <br />
+              Make sure you use your college email to register.
             </p>
           </div>
         </div>

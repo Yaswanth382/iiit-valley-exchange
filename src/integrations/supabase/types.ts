@@ -9,7 +9,107 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      product_images: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string
+          product_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url: string
+          product_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string
+          product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_images_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string
+          condition: string
+          created_at: string | null
+          description: string
+          id: string
+          is_negotiable: boolean | null
+          pickup_location: string | null
+          price: number
+          sold: boolean | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          category: string
+          condition: string
+          created_at?: string | null
+          description: string
+          id?: string
+          is_negotiable?: boolean | null
+          pickup_location?: string | null
+          price: number
+          sold?: boolean | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          category?: string
+          condition?: string
+          created_at?: string | null
+          description?: string
+          id?: string
+          is_negotiable?: boolean | null
+          pickup_location?: string | null
+          price?: number
+          sold?: boolean | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          full_name: string | null
+          hostel_details: string | null
+          id: string
+          phone_number: string | null
+          student_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          full_name?: string | null
+          hostel_details?: string | null
+          id: string
+          phone_number?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          full_name?: string | null
+          hostel_details?: string | null
+          id?: string
+          phone_number?: string | null
+          student_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

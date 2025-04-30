@@ -5,6 +5,9 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusCircle, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation } from "@tanstack/react-query";
 
 import {
   Form,
@@ -66,33 +69,36 @@ const categories = [
 // Condition options
 const conditions = ["New", "Like New", "Good", "Used", "Fair"];
 
-// Sample product data (would come from API in a real app)
-const sampleListingData = {
-  id: 5,
-  title: "Operating Systems Concepts Book",
-  description: "Used for CS3510 Operating Systems course. Excellent condition with minor highlighting in the first few chapters. Selling because I've completed the course. Includes all the exercise solutions as a bonus PDF.",
-  price: 600,
-  category: "Books",
-  condition: "Good",
-  images: [
-    "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=1536",
-    "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&q=80&w=1536",
-  ],
-  isNegotiable: true,
-  pickupLocation: "Boys Hostel Block C, Room 304",
+type ProductImage = {
+  id: string;
+  image_url: string;
+};
+
+type Product = {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  condition: string;
+  is_negotiable: boolean;
+  pickup_location: string | null;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  product_images: ProductImage[];
 };
 
 const EditListing = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeletingListing, setIsDeletingListing] = useState(false);
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const { user } = useAuth();
+  const [existingImages, setExistingImages] = useState<ProductImage[]>([]);
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [newImages, setNewImages] = useState<File[]>([]);
   const [newImageUrls, setNewImageUrls] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-
+  
   // Initialize form
   const form = useForm<z.infer<typeof editListingSchema>>({
     resolver: zodResolver(editListingSchema),
@@ -100,41 +106,65 @@ const EditListing = () => {
       title: "",
       description: "",
       price: 0,
-      category: "",
-      condition: "",
       isNegotiable: false,
       pickupLocation: "",
     },
   });
 
-  useEffect(() => {
-    // In a real app, fetch product details based on ID
-    // For now, simulate an API call with sample data
-    setTimeout(() => {
-      const product = sampleListingData; // This would be from an API
-      
+  // Fetch product data
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["edit-product", id],
+    queryFn: async () => {
+      if (!id) throw new Error("Product ID is required");
+
+      const { data, error } = await supabase
+        .from("products")
+        .select(`
+          *,
+          product_images (*)
+        `)
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      return data as Product;
+    },
+    enabled: !!id,
+    onSuccess: (data) => {
+      // Set form values from fetched data
       form.reset({
-        title: product.title,
-        description: product.description,
-        price: product.price,
-        category: product.category,
-        condition: product.condition,
-        isNegotiable: product.isNegotiable,
-        pickupLocation: product.pickupLocation || "",
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        category: data.category,
+        condition: data.condition,
+        isNegotiable: data.is_negotiable,
+        pickupLocation: data.pickup_location || "",
       });
-      
-      setImageUrls(product.images);
-      setIsLoading(false);
-    }, 800);
-  }, [form, id]);
+
+      // Set existing images
+      setExistingImages(data.product_images || []);
+    },
+  });
+
+  // Check user is the owner
+  useEffect(() => {
+    if (product && user && product.user_id !== user.id) {
+      toast.error("You don't have permission to edit this listing");
+      navigate(`/product/${id}`);
+    }
+  }, [product, user, id, navigate]);
 
   // Handle image upload
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
+    // Calculate total images after upload
+    const totalImagesCount = existingImages.length - imagesToDelete.length + newImages.length + files.length;
+
     // Check if adding new files exceeds the 5 image limit
-    if (imageUrls.length + newImageUrls.length + files.length > 5) {
+    if (totalImagesCount > 5) {
       toast.error("Maximum 5 images allowed");
       return;
     }
@@ -158,8 +188,8 @@ const EditListing = () => {
   };
 
   // Remove existing image
-  const removeExistingImage = (index: number) => {
-    setImageUrls((prev) => prev.filter((_, i) => i !== index));
+  const removeExistingImage = (image: ProductImage) => {
+    setImagesToDelete((prev) => [...prev, image.id]);
   };
 
   // Remove new image
@@ -171,52 +201,111 @@ const EditListing = () => {
     setNewImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Update product mutation
+  const updateMutation = useMutation({
+    mutationFn: async (values: z.infer<typeof editListingSchema>) => {
+      if (!id || !user) return;
+
+      // Validate that the product will have at least one image after updates
+      const totalImagesAfterUpdate = existingImages.length - imagesToDelete.length + newImages.length;
+      if (totalImagesAfterUpdate === 0) {
+        throw new Error("Please upload at least one image");
+      }
+
+      // 1. Update product data
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({
+          title: values.title,
+          description: values.description,
+          price: values.price,
+          category: values.category,
+          condition: values.condition,
+          is_negotiable: values.isNegotiable,
+          pickup_location: values.pickupLocation || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      // 2. Delete images marked for deletion
+      for (const imageId of imagesToDelete) {
+        const { error: deleteError } = await supabase
+          .from('product_images')
+          .delete()
+          .eq('id', imageId);
+        
+        if (deleteError) throw deleteError;
+      }
+
+      // 3. Upload new images
+      for (const image of newImages) {
+        const filePath = `products/${id}/${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+        
+        // Upload file to storage
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, image);
+        
+        if (uploadError) throw uploadError;
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
+        
+        // Create product_images record
+        const { error: imageError } = await supabase
+          .from('product_images')
+          .insert({
+            product_id: id,
+            image_url: urlData.publicUrl
+          });
+        
+        if (imageError) throw imageError;
+      }
+    },
+    onSuccess: () => {
+      toast.success("Product listing updated successfully!");
+      navigate(`/product/${id}`);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update listing");
+    },
+  });
+
+  // Delete product mutation
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !user) return;
+
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Product listing deleted successfully!");
+      navigate("/products");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete listing");
+    },
+  });
+
   // Handle form submission
-  const onSubmit = async (values: z.infer<typeof editListingSchema>) => {
-    // Validate that at least one image is present
-    if (imageUrls.length + newImageUrls.length === 0) {
-      toast.error("Please upload at least one image");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      // In a real app, you would upload new images to a server and get URLs back
-      // Then update the listing with those URLs along with existing ones
-      
-      // For now, simulate a successful update
-      setTimeout(() => {
-        toast.success("Product listing updated successfully!");
-        navigate(`/product/${id}`);
-        setIsSubmitting(false);
-      }, 1500);
-    } catch (error) {
-      console.error("Error updating listing:", error);
-      toast.error("Failed to update listing. Please try again.");
-      setIsSubmitting(false);
-    }
+  const onSubmit = (values: z.infer<typeof editListingSchema>) => {
+    updateMutation.mutate(values);
   };
 
-  // Handle listing deletion
-  const handleDeleteListing = async () => {
-    setIsDeletingListing(true);
-    
-    try {
-      // In a real app, you would call an API to delete the listing
-      
-      // For now, simulate a successful deletion
-      setTimeout(() => {
-        toast.success("Product listing deleted successfully!");
-        navigate("/products");
-        setIsDeletingListing(false);
-        setIsDeleteDialogOpen(false);
-      }, 1500);
-    } catch (error) {
-      console.error("Error deleting listing:", error);
-      toast.error("Failed to delete listing. Please try again.");
-      setIsDeletingListing(false);
-    }
+  // Handle product deletion
+  const handleDeleteListing = () => {
+    deleteMutation.mutate();
   };
 
   if (isLoading) {
@@ -259,9 +348,9 @@ const EditListing = () => {
                     <AlertDialogAction 
                       onClick={handleDeleteListing}
                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      disabled={isDeletingListing}
+                      disabled={deleteMutation.isPending}
                     >
-                      {isDeletingListing ? "Deleting..." : "Delete Listing"}
+                      {deleteMutation.isPending ? "Deleting..." : "Delete Listing"}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -420,22 +509,22 @@ const EditListing = () => {
                     />
 
                     {/* Existing Images */}
-                    {imageUrls.length > 0 && (
+                    {existingImages.length > 0 && (
                       <div className="space-y-4">
                         <div>
                           <FormLabel>Current Images</FormLabel>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
-                          {imageUrls.map((url, index) => (
-                            <div key={index} className="relative group">
+                          {existingImages.filter(img => !imagesToDelete.includes(img.id)).map((image) => (
+                            <div key={image.id} className="relative group">
                               <img
-                                src={url}
-                                alt={`Product preview ${index + 1}`}
+                                src={image.image_url}
+                                alt={`Product preview`}
                                 className="h-24 w-24 object-cover rounded-md"
                               />
                               <button
                                 type="button"
-                                onClick={() => removeExistingImage(index)}
+                                onClick={() => removeExistingImage(image)}
                                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -474,7 +563,7 @@ const EditListing = () => {
                     )}
 
                     {/* Upload new images */}
-                    {imageUrls.length + newImageUrls.length < 5 && (
+                    {existingImages.length - imagesToDelete.length + newImageUrls.length < 5 && (
                       <div className="mt-2">
                         <label
                           htmlFor="image-upload"
@@ -515,8 +604,11 @@ const EditListing = () => {
                       >
                         Cancel
                       </Button>
-                      <Button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? "Updating..." : "Update Listing"}
+                      <Button 
+                        type="submit" 
+                        disabled={updateMutation.isPending}
+                      >
+                        {updateMutation.isPending ? "Updating..." : "Update Listing"}
                       </Button>
                     </div>
                   </form>

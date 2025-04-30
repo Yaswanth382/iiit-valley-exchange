@@ -1,13 +1,14 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -21,7 +22,8 @@ const Register = () => {
     agreeTerms: false,
   });
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { signUp } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -40,51 +42,45 @@ const Register = () => {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     // Basic validation
     if (!formData.email.endsWith('@iiitrkvalley.ac.in')) {
-      toast({
-        title: "Invalid Email",
-        description: "Please use your IIIT RK Valley email address",
-        variant: "destructive",
-      });
+      toast.error("Please use your IIIT RK Valley email address");
       setIsLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast({
-        title: "Password Mismatch",
-        description: "Your passwords do not match",
-        variant: "destructive",
-      });
+      toast.error("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
     if (!formData.agreeTerms) {
-      toast({
-        title: "Terms Required",
-        description: "You must agree to the Terms of Service",
-        variant: "destructive",
-      });
+      toast.error("You must agree to the Terms of Service");
       setIsLoading(false);
       return;
     }
 
-    // Simulate registration process
-    setTimeout(() => {
+    try {
+      // Extract the user metadata
+      const userData = {
+        full_name: formData.fullName,
+        student_id: formData.studentId,
+        phone_number: formData.phoneNumber,
+        hostel_details: formData.hostelDetails,
+      };
+
+      await signUp(formData.email, formData.password, userData);
+      navigate('/login');
+    } catch (error) {
+      // Error is already handled in the signUp function
+    } finally {
       setIsLoading(false);
-      toast({
-        title: "Registration Successful",
-        description: "Check your email to verify your account",
-      });
-      
-      // In a real app, we would redirect or do something else here
-    }, 2000);
+    }
   };
 
   return (

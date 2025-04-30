@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,130 +16,25 @@ import { Badge } from "@/components/ui/badge";
 import { PlusCircle, Search, Filter, Grid3X3, List } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
-// Sample product data (same as in FeaturedProducts)
-const allProducts = [
-  {
-    id: 1,
-    title: "Data Structures and Algorithms Textbook",
-    price: 850,
-    category: "Books",
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&q=80&w=1536",
-    seller: "Amit Kumar",
-    isNegotiable: true,
-  },
-  {
-    id: 2,
-    title: "TI-84 Plus Graphing Calculator",
-    price: 1200,
-    category: "Electronics",
-    condition: "Like New",
-    image: "https://images.unsplash.com/photo-1574492543172-b7be99fd7ba1?auto=format&fit=crop&q=80&w=1536",
-    seller: "Priya Singh",
-    isNegotiable: false,
-  },
-  {
-    id: 3,
-    title: "IIIT-RKV Branded Hoodie - Large",
-    price: 450,
-    category: "Clothing",
-    condition: "New",
-    image: "https://images.unsplash.com/photo-1620799140408-edc6dcb6d633?auto=format&fit=crop&q=80&w=1536",
-    seller: "Rahul Mishra",
-    isNegotiable: true,
-  },
-  {
-    id: 4,
-    title: "Logitech G402 Gaming Mouse",
-    price: 950,
-    category: "Electronics",
-    condition: "Used",
-    image: "https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&q=80&w=1536",
-    seller: "Sneha Patel",
-    isNegotiable: false,
-  },
-  {
-    id: 5,
-    title: "Operating Systems Concepts Book",
-    price: 600,
-    category: "Books",
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=1536",
-    seller: "Karthik Reddy",
-    isNegotiable: true,
-  },
-  {
-    id: 6,
-    title: "Wooden Study Table",
-    price: 1800,
-    category: "Furniture",
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&q=80&w=1536",
-    seller: "Ananya Gupta",
-    isNegotiable: true,
-  },
-  {
-    id: 7,
-    title: "Scientific Calculator - Casio FX-991ES",
-    price: 750,
-    category: "Electronics",
-    condition: "Like New",
-    image: "https://images.unsplash.com/photo-1587142369400-ce359326c2d5?auto=format&fit=crop&q=80&w=1536",
-    seller: "Vikram Singh",
-    isNegotiable: false,
-  },
-  {
-    id: 8,
-    title: "Complete Set of Programming Reference Books",
-    price: 1500,
-    category: "Books",
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=1536",
-    seller: "Meera Kapoor",
-    isNegotiable: true,
-  },
-  {
-    id: 9,
-    title: "Samsung Galaxy S20 - 128GB",
-    price: 12000,
-    category: "Electronics",
-    condition: "Used",
-    image: "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?auto=format&fit=crop&q=80&w=1536",
-    seller: "Nikhil Joshi",
-    isNegotiable: true,
-  },
-  {
-    id: 10,
-    title: "Computer Networks Textbook",
-    price: 550,
-    category: "Books",
-    condition: "Like New",
-    image: "https://images.unsplash.com/photo-1544391591-51cdca0a6c4e?auto=format&fit=crop&q=80&w=1536",
-    seller: "Divya Sharma",
-    isNegotiable: false,
-  },
-  {
-    id: 11,
-    title: "Desk Lamp with Adjustable Brightness",
-    price: 350,
-    category: "Electronics",
-    condition: "Good",
-    image: "https://images.unsplash.com/photo-1534107414612-5c96a9f6a843?auto=format&fit=crop&q=80&w=1536",
-    seller: "Arjun Nair",
-    isNegotiable: true,
-  },
-  {
-    id: 12,
-    title: "Lab Coat - Size Medium",
-    price: 200,
-    category: "Clothing",
-    condition: "New",
-    image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&q=80&w=1536",
-    seller: "Priya Malhotra",
-    isNegotiable: false,
-  },
-];
+// Define the type for a product
+type Product = {
+  id: string;
+  title: string;
+  price: number;
+  category: string;
+  condition: string;
+  images: { image_url: string }[];
+  seller: {
+    full_name: string;
+    phone_number: string;
+  };
+  is_negotiable: boolean;
+  created_at: string;
+};
 
 const categories = [
   "All Categories",
@@ -157,6 +52,7 @@ const conditions = ["New", "Like New", "Good", "Used", "Fair"];
 const Products = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const { isAuthenticated } = useAuth();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
@@ -167,8 +63,44 @@ const Products = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  // Fetch products from Supabase
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const { data: productsData, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          price,
+          category,
+          condition,
+          is_negotiable,
+          created_at,
+          user_id,
+          product_images (image_url),
+          profiles:user_id (
+            full_name,
+            phone_number
+          )
+        `)
+        .filter('sold', 'eq', false)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      return productsData.map(product => ({
+        ...product,
+        seller: product.profiles,
+        images: product.product_images
+      }));
+    }
+  });
+
   // Filter products based on all criteria
-  const filteredProducts = allProducts.filter((product) => {
+  const filteredProducts = products.filter((product) => {
     // Search term filter
     if (
       searchTerm &&
@@ -199,7 +131,7 @@ const Products = () => {
     }
 
     // Negotiable filter
-    if (showNegotiableOnly && !product.isNegotiable) {
+    if (showNegotiableOnly && !product.is_negotiable) {
       return false;
     }
 
@@ -215,7 +147,7 @@ const Products = () => {
         return b.price - a.price;
       case "newest":
       default:
-        return b.id - a.id; // Using ID as a proxy for newest
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     }
   });
 
@@ -225,6 +157,18 @@ const Products = () => {
         ? prev.filter((c) => c !== condition)
         : [...prev, condition]
     );
+  };
+
+  const getWhatsappLink = (phoneNumber: string, productTitle: string) => {
+    const message = `Hello, I'm interested in your listing: ${productTitle} on IIIT RKV Campus Market.`;
+    const encodedMessage = encodeURIComponent(message);
+    
+    // Format phone number to remove spaces and ensure it has international format
+    const formattedNumber = phoneNumber.startsWith('+') 
+      ? phoneNumber.replace(/\s+/g, '') 
+      : '+91' + phoneNumber.replace(/\s+/g, '');
+      
+    return `https://wa.me/${formattedNumber.replace('+', '')}?text=${encodedMessage}`;
   };
 
   return (
@@ -240,7 +184,7 @@ const Products = () => {
                 Browse products available for sale on Campus Market
               </p>
             </div>
-            <Link to="/create-listing">
+            <Link to={isAuthenticated ? "/create-listing" : "/login"}>
               <Button className="bg-campus-primary hover:bg-campus-dark gap-2">
                 <PlusCircle className="h-4 w-4" />
                 <span>Sell an Item</span>
@@ -414,7 +358,12 @@ const Products = () => {
                 </p>
               </div>
               
-              {sortedProducts.length === 0 ? (
+              {isLoading ? (
+                <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-campus-primary mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading products...</p>
+                </div>
+              ) : sortedProducts.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                   <h3 className="text-lg font-semibold mb-2">No products found</h3>
                   <p className="text-gray-500">
@@ -424,15 +373,14 @@ const Products = () => {
               ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {sortedProducts.map((product) => (
-                    <Link
+                    <div
                       key={product.id}
-                      to={`/product/${product.id}`}
                       className="group"
                     >
                       <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md h-full flex flex-col">
                         <div className="aspect-square relative overflow-hidden">
                           <img
-                            src={product.image}
+                            src={product.images[0]?.image_url || "/placeholder.svg"}
                             alt={product.title}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
@@ -450,7 +398,7 @@ const Products = () => {
                             <Badge variant="outline" className="text-xs mr-2">
                               {product.category}
                             </Badge>
-                            {product.isNegotiable && (
+                            {product.is_negotiable && (
                               <Badge variant="outline" className="text-xs">
                                 Negotiable
                               </Badge>
@@ -461,27 +409,39 @@ const Products = () => {
                               ₹{product.price}
                             </span>
                             <span className="text-sm text-gray-500">
-                              {product.seller}
+                              {product.seller?.full_name}
                             </span>
+                          </div>
+                          <div className="mt-4 flex space-x-2">
+                            <Link to={`/product/${product.id}`} className="flex-1">
+                              <Button variant="outline" size="sm" className="w-full">View Details</Button>
+                            </Link>
+                            <a 
+                              href={getWhatsappLink(product.seller?.phone_number || "", product.title)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex-1"
+                            >
+                              <Button size="sm" className="w-full bg-green-600 hover:bg-green-700">Contact Seller</Button>
+                            </a>
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               ) : (
                 <div className="space-y-4">
                   {sortedProducts.map((product) => (
-                    <Link
+                    <div
                       key={product.id}
-                      to={`/product/${product.id}`}
                       className="group"
                     >
                       <div className="bg-white rounded-lg shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
                         <div className="flex flex-col sm:flex-row">
                           <div className="w-full sm:w-1/4 aspect-square relative overflow-hidden">
                             <img
-                              src={product.image}
+                              src={product.images[0]?.image_url || "/placeholder.svg"}
                               alt={product.title}
                               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -500,30 +460,43 @@ const Products = () => {
                                 <Badge variant="outline" className="text-xs mr-2">
                                   {product.category}
                                 </Badge>
-                                {product.isNegotiable && (
+                                {product.is_negotiable && (
                                   <Badge variant="outline" className="text-xs">
                                     Negotiable
                                   </Badge>
                                 )}
                               </div>
                             </div>
-                            <div className="flex justify-between items-center">
+                            <div className="flex justify-between items-center mb-4">
                               <span className="text-xl font-bold text-campus-primary">
                                 ₹{product.price}
                               </span>
                               <div className="flex flex-col items-end">
                                 <span className="text-sm text-gray-500">
-                                  Seller: {product.seller}
+                                  Seller: {product.seller?.full_name}
                                 </span>
                                 <span className="text-xs text-gray-400">
-                                  Posted 2 days ago
+                                  Posted {new Date(product.created_at).toLocaleDateString()}
                                 </span>
                               </div>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Link to={`/product/${product.id}`} className="flex-1 sm:flex-none">
+                                <Button variant="outline" size="sm" className="w-full sm:w-auto">View Details</Button>
+                              </Link>
+                              <a 
+                                href={getWhatsappLink(product.seller?.phone_number || "", product.title)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex-1 sm:flex-none"
+                              >
+                                <Button size="sm" className="w-full sm:w-auto bg-green-600 hover:bg-green-700">Contact Seller</Button>
+                              </a>
                             </div>
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               )}

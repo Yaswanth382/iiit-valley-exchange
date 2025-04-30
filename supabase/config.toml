@@ -1,1 +1,5 @@
+
 project_id = "qujkafezsjwijeemyhdg"
+
+[storage]
+file_size_limit = "5MB"
