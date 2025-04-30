@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -130,22 +131,25 @@ const EditListing = () => {
       return data as Product;
     },
     enabled: !!id,
-    onSuccess: (data) => {
-      // Set form values from fetched data
+  });
+
+  // Set form values from fetched data when product data is available
+  useEffect(() => {
+    if (product) {
       form.reset({
-        title: data.title,
-        description: data.description,
-        price: data.price,
-        category: data.category,
-        condition: data.condition,
-        isNegotiable: data.is_negotiable,
-        pickupLocation: data.pickup_location || "",
+        title: product.title,
+        description: product.description,
+        price: product.price,
+        category: product.category,
+        condition: product.condition,
+        isNegotiable: product.is_negotiable,
+        pickupLocation: product.pickup_location || "",
       });
 
       // Set existing images
-      setExistingImages(data.product_images || []);
-    },
-  });
+      setExistingImages(product.product_images || []);
+    }
+  }, [product, form]);
 
   // Check user is the owner
   useEffect(() => {

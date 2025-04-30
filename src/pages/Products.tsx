@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -21,6 +20,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 
 // Define the type for a product
+type ProductProfile = {
+  full_name: string | null;
+  phone_number: string | null;
+};
+
 type Product = {
   id: string;
   title: string;
@@ -28,10 +32,7 @@ type Product = {
   category: string;
   condition: string;
   images: { image_url: string }[];
-  seller: {
-    full_name: string;
-    phone_number: string;
-  };
+  seller: ProductProfile;
   is_negotiable: boolean;
   created_at: string;
 };
@@ -91,9 +92,10 @@ const Products = () => {
         throw error;
       }
 
+      // Transform the data to match our Product type
       return productsData.map(product => ({
         ...product,
-        seller: product.profiles,
+        seller: product.profiles as ProductProfile || { full_name: null, phone_number: null },
         images: product.product_images
       }));
     }
@@ -159,7 +161,9 @@ const Products = () => {
     );
   };
 
-  const getWhatsappLink = (phoneNumber: string, productTitle: string) => {
+  const getWhatsappLink = (phoneNumber: string | null, productTitle: string) => {
+    if (!phoneNumber) return "#";
+    
     const message = `Hello, I'm interested in your listing: ${productTitle} on IIIT RKV Campus Market.`;
     const encodedMessage = encodeURIComponent(message);
     
@@ -409,7 +413,7 @@ const Products = () => {
                               ₹{product.price}
                             </span>
                             <span className="text-sm text-gray-500">
-                              {product.seller?.full_name}
+                              {product.seller?.full_name || "Unknown"}
                             </span>
                           </div>
                           <div className="mt-4 flex space-x-2">
@@ -417,7 +421,7 @@ const Products = () => {
                               <Button variant="outline" size="sm" className="w-full">View Details</Button>
                             </Link>
                             <a 
-                              href={getWhatsappLink(product.seller?.phone_number || "", product.title)} 
+                              href={getWhatsappLink(product.seller?.phone_number, product.title)} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="flex-1"
@@ -473,7 +477,7 @@ const Products = () => {
                               </span>
                               <div className="flex flex-col items-end">
                                 <span className="text-sm text-gray-500">
-                                  Seller: {product.seller?.full_name}
+                                  Seller: {product.seller?.full_name || "Unknown"}
                                 </span>
                                 <span className="text-xs text-gray-400">
                                   Posted {new Date(product.created_at).toLocaleDateString()}
@@ -485,7 +489,7 @@ const Products = () => {
                                 <Button variant="outline" size="sm" className="w-full sm:w-auto">View Details</Button>
                               </Link>
                               <a 
-                                href={getWhatsappLink(product.seller?.phone_number || "", product.title)} 
+                                href={getWhatsappLink(product.seller?.phone_number, product.title)} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="flex-1 sm:flex-none"

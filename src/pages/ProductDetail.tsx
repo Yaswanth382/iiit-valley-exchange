@@ -28,6 +28,14 @@ type ProductImage = {
   image_url: string;
 };
 
+type ProductProfile = {
+  id: string;
+  full_name: string | null;
+  student_id: string | null;
+  phone_number: string | null;
+  hostel_details: string | null;
+};
+
 type Product = {
   id: string;
   title: string;
@@ -40,13 +48,7 @@ type Product = {
   user_id: string;
   created_at: string;
   updated_at: string;
-  profiles: {
-    id: string;
-    full_name: string;
-    student_id: string | null;
-    phone_number: string | null;
-    hostel_details: string | null;
-  };
+  profiles: ProductProfile;
   product_images: ProductImage[];
 };
 
@@ -71,7 +73,7 @@ const ProductDetail = () => {
         .single();
 
       if (error) throw error;
-      return data as Product;
+      return data as unknown as Product;
     },
     enabled: !!id,
   });
