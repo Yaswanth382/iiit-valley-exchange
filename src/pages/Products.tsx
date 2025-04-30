@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -32,7 +33,7 @@ type Product = {
   category: string;
   condition: string;
   images: { image_url: string }[];
-  seller: ProductProfile;
+  seller: ProductProfile | null;
   is_negotiable: boolean;
   created_at: string;
 };
@@ -93,11 +94,22 @@ const Products = () => {
       }
 
       // Transform the data to match our Product type
-      return productsData.map(product => ({
-        ...product,
-        seller: product.profiles as ProductProfile || { full_name: null, phone_number: null },
-        images: product.product_images
-      }));
+      return productsData.map(product => {
+        // Safely handle the profiles data which might be an error object
+        let seller: ProductProfile | null = null;
+        if (product.profiles && typeof product.profiles === 'object' && !('error' in product.profiles)) {
+          seller = {
+            full_name: product.profiles.full_name,
+            phone_number: product.profiles.phone_number
+          };
+        }
+
+        return {
+          ...product,
+          seller,
+          images: product.product_images
+        };
+      });
     }
   });
 
