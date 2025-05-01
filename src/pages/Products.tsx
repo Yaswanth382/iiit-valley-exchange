@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,13 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { PlusCircle, Search, Filter, Grid3X3, List } from "lucide-react";
+import { PlusCircle, Search, Filter, Grid3X3, List, Heart, HeartOff } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 // Define the type for a product
 type ProductProfile = {
@@ -35,6 +37,7 @@ type Product = {
   seller: ProductProfile | null;
   is_negotiable: boolean;
   created_at: string;
+  is_in_wishlist?: boolean;
 };
 
 const categories = [
@@ -53,7 +56,7 @@ const conditions = ["New", "Like New", "Good", "Used", "Fair"];
 const Products = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchTerm, setSearchTerm] = useState("");
@@ -63,9 +66,35 @@ const Products = () => {
   const [showNegotiableOnly, setShowNegotiableOnly] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+
+  // Fetch wishlist items for the current user
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchWishlistItems();
+    }
+  }, [isAuthenticated, user]);
+
+  const fetchWishlistItems = async () => {
+    if (!user) return;
+    
+    const { data, error } = await supabase
+      .from('wishlists')
+      .select('product_id')
+      .eq('user_id', user.id);
+      
+    if (error) {
+      console.error("Error fetching wishlist:", error);
+      return;
+    }
+    
+    if (data) {
+      setWishlistIds(data.map(item => item.product_id));
+    }
+  };
 
   // Fetch products from Supabase
-  const { data: products = [], isLoading } = useQuery({
+  const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
       const { data: productsData, error } = await supabase
@@ -94,23 +123,67 @@ const Products = () => {
 
       // Transform the data to match our Product type
       return productsData.map(product => {
-        // Safely handle the profiles data which might be null or error object
-        let seller: ProductProfile | null = null;
-        if (product.profiles && typeof product.profiles === 'object' && !('error' in product.profiles)) {
-          seller = {
-            full_name: product.profiles?.full_name || null,
-            phone_number: product.profiles?.phone_number || null
-          };
-        }
+        // Safely handle the profiles data
+        const seller: ProductProfile | null = product.profiles ? {
+          full_name: product.profiles.full_name || null,
+          phone_number: product.profiles.phone_number || null
+        } : null;
 
         return {
           ...product,
           seller,
-          images: product.product_images
+          images: product.product_images,
+          is_in_wishlist: wishlistIds.includes(product.id)
         };
       });
-    }
+    },
+    enabled: true
   });
+
+  // Handle toggling wishlist/like status
+  const toggleWishlist = async (productId: string) => {
+    if (!isAuthenticated) {
+      toast.error("Please login to add items to your wishlist");
+      return;
+    }
+
+    const isInWishlist = wishlistIds.includes(productId);
+    
+    if (isInWishlist) {
+      // Remove from wishlist
+      const { error } = await supabase
+        .from('wishlists')
+        .delete()
+        .eq('user_id', user?.id)
+        .eq('product_id', productId);
+        
+      if (error) {
+        toast.error("Failed to remove from wishlist");
+        return;
+      }
+      
+      setWishlistIds(prev => prev.filter(id => id !== productId));
+      toast.success("Removed from wishlist");
+    } else {
+      // Add to wishlist
+      const { error } = await supabase
+        .from('wishlists')
+        .insert({
+          user_id: user?.id,
+          product_id: productId
+        });
+        
+      if (error) {
+        toast.error("Failed to add to wishlist");
+        return;
+      }
+      
+      setWishlistIds(prev => [...prev, productId]);
+      toast.success("Added to wishlist");
+    }
+    
+    refetch();
+  };
 
   // Filter products based on all criteria
   const filteredProducts = products.filter((product) => {
@@ -404,6 +477,23 @@ const Products = () => {
                               {product.condition}
                             </Badge>
                           </div>
+                          <div className="absolute top-2 right-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              className="h-8 w-8 rounded-full bg-white hover:bg-gray-100"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                toggleWishlist(product.id);
+                              }}
+                            >
+                              {wishlistIds.includes(product.id) ? (
+                                <Heart className="h-4 w-4 fill-red-500 text-red-500" />
+                              ) : (
+                                <Heart className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                         <div className="p-4 flex-grow flex flex-col">
                           <h3 className="font-medium text-gray-900 mb-1 line-clamp-2">
@@ -432,7 +522,7 @@ const Products = () => {
                               <Button variant="outline" size="sm" className="w-full">View Details</Button>
                             </Link>
                             <a 
-                              href={getWhatsappLink(product.seller?.phone_number || null, product.title)} 
+                              href={getWhatsappLink(product.seller?.phone_number, product.title)} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="flex-1"
@@ -464,6 +554,23 @@ const Products = () => {
                               <Badge className="bg-campus-primary text-white hover:bg-campus-dark">
                                 {product.condition}
                               </Badge>
+                            </div>
+                            <div className="absolute top-2 right-2">
+                              <Button 
+                                variant="outline" 
+                                size="icon"
+                                className="h-8 w-8 rounded-full bg-white hover:bg-gray-100"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleWishlist(product.id);
+                                }}
+                              >
+                                {wishlistIds.includes(product.id) ? (
+                                  <Heart className="h-4 w-4 fill-red-500 text-red-500" />
+                                ) : (
+                                  <Heart className="h-4 w-4" />
+                                )}
+                              </Button>
                             </div>
                           </div>
                           <div className="p-4 sm:p-6 w-full sm:w-3/4 flex flex-col justify-between">
@@ -500,7 +607,7 @@ const Products = () => {
                                 <Button variant="outline" size="sm" className="w-full sm:w-auto">View Details</Button>
                               </Link>
                               <a 
-                                href={getWhatsappLink(product.seller?.phone_number || null, product.title)} 
+                                href={getWhatsappLink(product.seller?.phone_number, product.title)} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="flex-1 sm:flex-none"

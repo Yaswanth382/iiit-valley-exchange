@@ -10,13 +10,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Search, User, Menu, ShoppingCart } from "lucide-react";
+import { Search, Menu, Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 
 const Navbar = () => {
   const { user, isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
+  const [wishlistCount, setWishlistCount] = useState(0);
   
   const handleSellClick = () => {
     if (isAuthenticated) {
@@ -25,6 +28,33 @@ const Navbar = () => {
       navigate('/login');
     }
   };
+
+  // Fetch wishlist count
+  const { data: wishlistData } = useQuery({
+    queryKey: ['wishlist-count', user?.id],
+    queryFn: async () => {
+      if (!user) return { count: 0 };
+      
+      const { count, error } = await supabase
+        .from('wishlists')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+        
+      if (error) {
+        console.error("Error fetching wishlist count:", error);
+        return { count: 0 };
+      }
+      
+      return { count: count || 0 };
+    },
+    enabled: isAuthenticated
+  });
+
+  useEffect(() => {
+    if (wishlistData) {
+      setWishlistCount(wishlistData.count);
+    }
+  }, [wishlistData]);
 
   // Get user initials for avatar fallback
   const getUserInitials = () => {
@@ -76,12 +106,14 @@ const Navbar = () => {
 
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
-              <Link to="/cart">
+              <Link to="/wishlist">
                 <Button variant="ghost" size="icon" className="relative">
-                  <ShoppingCart className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-campus-primary text-[10px] font-bold text-white flex items-center justify-center">
-                    3
-                  </span>
+                  <Heart className="h-5 w-5" />
+                  {wishlistCount > 0 && (
+                    <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-campus-primary text-[10px] font-bold text-white flex items-center justify-center">
+                      {wishlistCount}
+                    </span>
+                  )}
                 </Button>
               </Link>
               <Link to="/profile">
@@ -165,8 +197,8 @@ const Navbar = () => {
                     <Link to="/profile">
                       <Button variant="outline" className="w-full">My Profile</Button>
                     </Link>
-                    <Link to="/cart">
-                      <Button variant="outline" className="w-full">My Cart</Button>
+                    <Link to="/wishlist">
+                      <Button variant="outline" className="w-full">My Wishlist</Button>
                     </Link>
                     <Button 
                       variant="outline" 
