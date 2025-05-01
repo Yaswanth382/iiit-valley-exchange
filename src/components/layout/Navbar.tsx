@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,9 +12,10 @@ import {
 } from "@/components/ui/sheet";
 import { Search, User, Menu, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const Navbar = () => {
-  const { isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
   const navigate = useNavigate();
   
   const handleSellClick = () => {
@@ -23,6 +24,19 @@ const Navbar = () => {
     } else {
       navigate('/login');
     }
+  };
+
+  // Get user initials for avatar fallback
+  const getUserInitials = () => {
+    if (!user || !user.user_metadata || !user.user_metadata.full_name) {
+      return "U";
+    }
+    const fullName = user.user_metadata.full_name;
+    const nameParts = fullName.split(' ');
+    if (nameParts.length >= 2) {
+      return `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase();
+    }
+    return fullName[0].toUpperCase();
   };
 
   return (
@@ -71,8 +85,16 @@ const Navbar = () => {
                 </Button>
               </Link>
               <Link to="/profile">
-                <Button variant="ghost" size="icon">
-                  <User className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar>
+                    <AvatarImage 
+                      src={user?.user_metadata?.avatar_url || ""} 
+                      alt={user?.user_metadata?.full_name || "User"} 
+                    />
+                    <AvatarFallback className="bg-campus-primary text-white">
+                      {getUserInitials()}
+                    </AvatarFallback>
+                  </Avatar>
                 </Button>
               </Link>
               <Button variant="outline" onClick={() => signOut()}>
