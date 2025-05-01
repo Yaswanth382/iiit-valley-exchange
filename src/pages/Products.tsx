@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -95,7 +94,7 @@ const Products = () => {
 
       // Transform the data to match our Product type
       return productsData.map(product => {
-        // Safely handle the profiles data which might be an error object
+        // Safely handle the profiles data which might be null or error object
         let seller: ProductProfile | null = null;
         if (product.profiles && typeof product.profiles === 'object' && !('error' in product.profiles)) {
           seller = {
@@ -433,7 +432,7 @@ const Products = () => {
                               <Button variant="outline" size="sm" className="w-full">View Details</Button>
                             </Link>
                             <a 
-                              href={getWhatsappLink(product.seller?.phone_number, product.title)} 
+                              href={getWhatsappLink(product.seller?.phone_number || null, product.title)} 
                               target="_blank" 
                               rel="noopener noreferrer"
                               className="flex-1"
@@ -501,7 +500,7 @@ const Products = () => {
                                 <Button variant="outline" size="sm" className="w-full sm:w-auto">View Details</Button>
                               </Link>
                               <a 
-                                href={getWhatsappLink(product.seller?.phone_number, product.title)} 
+                                href={getWhatsappLink(product.seller?.phone_number || null, product.title)} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="flex-1 sm:flex-none"
