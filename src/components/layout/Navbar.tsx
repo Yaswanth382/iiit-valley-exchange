@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -11,9 +11,19 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Search, User, Menu, ShoppingCart } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Navbar = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, signOut } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleSellClick = () => {
+    if (isAuthenticated) {
+      navigate('/create-listing');
+    } else {
+      navigate('/login');
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -29,7 +39,12 @@ const Navbar = () => {
           <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
             <Link to="/" className="transition-colors hover:text-campus-primary">Home</Link>
             <Link to="/products" className="transition-colors hover:text-campus-primary">Products</Link>
-            <Link to="/sell" className="transition-colors hover:text-campus-primary">Sell</Link>
+            <button 
+              onClick={handleSellClick}
+              className="transition-colors hover:text-campus-primary bg-transparent border-none p-0 font-medium text-sm cursor-pointer"
+            >
+              Sell
+            </button>
             <Link to="/help" className="transition-colors hover:text-campus-primary">Help</Link>
             <Link to="/faq" className="transition-colors hover:text-campus-primary">FAQ</Link>
           </nav>
@@ -45,7 +60,7 @@ const Navbar = () => {
             />
           </form>
 
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <div className="flex items-center gap-2">
               <Link to="/cart">
                 <Button variant="ghost" size="icon" className="relative">
@@ -60,7 +75,7 @@ const Navbar = () => {
                   <User className="h-5 w-5" />
                 </Button>
               </Link>
-              <Button variant="outline" onClick={() => setIsLoggedIn(false)}>
+              <Button variant="outline" onClick={() => signOut()}>
                 Logout
               </Button>
             </div>
@@ -105,11 +120,16 @@ const Navbar = () => {
                 </form>
                 <Link to="/" className="flex w-full items-center py-2 text-lg font-semibold">Home</Link>
                 <Link to="/products" className="flex w-full items-center py-2 text-lg font-semibold">Products</Link>
-                <Link to="/sell" className="flex w-full items-center py-2 text-lg font-semibold">Sell</Link>
+                <button 
+                  onClick={handleSellClick}
+                  className="flex w-full items-center py-2 text-lg font-semibold bg-transparent border-none text-left"
+                >
+                  Sell
+                </button>
                 <Link to="/help" className="flex w-full items-center py-2 text-lg font-semibold">Help</Link>
                 <Link to="/faq" className="flex w-full items-center py-2 text-lg font-semibold">FAQ</Link>
                 
-                {!isLoggedIn ? (
+                {!isAuthenticated ? (
                   <div className="flex flex-col gap-2 mt-4">
                     <Link to="/login">
                       <Button variant="outline" className="w-full">Login</Button>
@@ -129,7 +149,7 @@ const Navbar = () => {
                     <Button 
                       variant="outline" 
                       className="w-full" 
-                      onClick={() => setIsLoggedIn(false)}
+                      onClick={() => signOut()}
                     >
                       Logout
                     </Button>

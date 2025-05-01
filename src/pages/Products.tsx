@@ -99,8 +99,8 @@ const Products = () => {
         let seller: ProductProfile | null = null;
         if (product.profiles && typeof product.profiles === 'object' && !('error' in product.profiles)) {
           seller = {
-            full_name: product.profiles.full_name,
-            phone_number: product.profiles.phone_number
+            full_name: product.profiles?.full_name || null,
+            phone_number: product.profiles?.phone_number || null
           };
         }
 

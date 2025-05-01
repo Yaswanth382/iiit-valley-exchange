@@ -47,8 +47,11 @@ const Register = () => {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.email.endsWith('@iiitrkvalley.ac.in')) {
-      toast.error("Please use your IIIT RK Valley email address");
+    const validEmailDomains = ['@iiitrkvalley.ac.in', '@rguktrkv.ac.in'];
+    const isValidEmail = validEmailDomains.some(domain => formData.email.endsWith(domain));
+    
+    if (!isValidEmail) {
+      toast.error("Please use your IIIT RK Valley or RGUKT RKV email address");
       setIsLoading(false);
       return;
     }
@@ -133,12 +136,13 @@ const Register = () => {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="your.name@iiitrkvalley.ac.in"
+                  placeholder="your.name@iiitrkvalley.ac.in or your.name@rguktrkv.ac.in"
                   value={formData.email}
                   onChange={handleChange}
                   required
                   className="w-full"
                 />
+                <p className="text-xs text-gray-500">Use either @iiitrkvalley.ac.in or @rguktrkv.ac.in email</p>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
