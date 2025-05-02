@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -57,11 +57,16 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const [currentImage, setCurrentImage] = useState(0);
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   // Fetch product data
   const { data: product, isLoading, error } = useQuery({
     queryKey: ["product", id],
     queryFn: async () => {
+      if (!id) throw new Error("No product ID provided");
+      
+      console.log("Fetching product with ID:", id);
+      
       const { data, error } = await supabase
         .from("products")
         .select(`
@@ -72,10 +77,15 @@ const ProductDetail = () => {
         .eq("id", id)
         .single();
 
-      if (error) throw error;
-      return data as unknown as Product;
+      if (error) {
+        console.error("Error fetching product:", error);
+        throw error;
+      }
+      
+      console.log("Product data:", data);
+      return data as Product;
     },
-    enabled: !!id,
+    retry: 1,
   });
 
   // Delete product mutation
@@ -92,6 +102,7 @@ const ProductDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
       toast.success("Product successfully deleted");
       navigate("/products");
     },
@@ -122,6 +133,7 @@ const ProductDetail = () => {
 
   // Error state
   if (error || !product) {
+    console.error("Product error:", error);
     return (
       <div className="flex flex-col min-h-screen">
         <Navbar />
@@ -201,6 +213,9 @@ const ProductDetail = () => {
       prev === product.product_images.length - 1 ? 0 : prev + 1
     );
   };
+
+  // Debug logging
+  console.log("Product images:", product.product_images);
 
   return (
     <div className="flex flex-col min-h-screen">

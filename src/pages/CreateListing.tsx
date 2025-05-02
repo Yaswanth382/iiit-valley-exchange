@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -161,24 +160,6 @@ const CreateListing = () => {
       
       if (!productId) {
         throw new Error("Failed to get product ID after creation");
-      }
-      
-      // Create a bucket if it doesn't exist
-      const { data: bucketData, error: bucketError } = await supabase.storage
-        .getBucket('product-images');
-      
-      if (bucketError && bucketError.message.includes('The resource was not found')) {
-        // Create bucket if not found
-        const { error: createBucketError } = await supabase.storage
-          .createBucket('product-images', {
-            public: true,
-            fileSizeLimit: 5242880 // 5MB
-          });
-        
-        if (createBucketError) {
-          console.error("Error creating bucket:", createBucketError);
-          throw createBucketError;
-        }
       }
       
       const uploadPromises = images.map(async (image, index) => {
