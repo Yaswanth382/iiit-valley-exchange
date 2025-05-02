@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -162,8 +163,13 @@ const CreateListing = () => {
         throw new Error("Failed to get product ID after creation");
       }
       
+      // Upload images to storage and create product_images records
       const uploadPromises = images.map(async (image, index) => {
-        const filePath = `${productId}/${Date.now()}-${index}`;
+        const timestamp = Date.now();
+        const fileExt = image.name.split('.').pop();
+        const filePath = `${productId}/${timestamp}-${index}.${fileExt}`;
+        
+        console.log(`Uploading file to path: ${filePath}`);
         
         // Upload file to storage
         const { error: uploadError, data: uploadData } = await supabase.storage
@@ -180,6 +186,8 @@ const CreateListing = () => {
           .from('product-images')
           .getPublicUrl(filePath);
         
+        console.log("File uploaded, public URL:", urlData.publicUrl);
+        
         // Create product_images record
         const { error: imageError } = await supabase
           .from('product_images')
@@ -192,6 +200,8 @@ const CreateListing = () => {
           console.error("Image record error:", imageError);
           throw imageError;
         }
+
+        console.log("Product image record created successfully");
       });
       
       await Promise.all(uploadPromises);

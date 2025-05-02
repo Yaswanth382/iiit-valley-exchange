@@ -23,20 +23,21 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-type ProductImage = {
+// Define product-related types
+interface ProductImage {
   id: string;
   image_url: string;
-};
+}
 
-type ProductProfile = {
+interface ProductProfile {
   id: string;
   full_name: string | null;
   student_id: string | null;
   phone_number: string | null;
   hostel_details: string | null;
-};
+}
 
-type Product = {
+interface Product {
   id: string;
   title: string;
   description: string;
@@ -50,7 +51,7 @@ type Product = {
   updated_at: string;
   profiles: ProductProfile;
   product_images: ProductImage[];
-};
+}
 
 const ProductDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -83,7 +84,7 @@ const ProductDetail = () => {
       }
       
       console.log("Product data:", data);
-      return data as Product;
+      return data as unknown as Product;
     },
     retry: 1,
   });
