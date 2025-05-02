@@ -19,9 +19,9 @@ const CTASection = () => {
                 Create an Account
               </Button>
             </Link>
-            <Link to="/products">
+            <Link to="/create-listing">
               <Button size="lg" variant="outline" className="text-white border-white hover:bg-white/10">
-                Browse Products
+                Start Selling
               </Button>
             </Link>
           </div>

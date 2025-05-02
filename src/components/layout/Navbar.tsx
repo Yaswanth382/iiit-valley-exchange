@@ -22,11 +22,7 @@ const Navbar = () => {
   const [wishlistCount, setWishlistCount] = useState(0);
   
   const handleSellClick = () => {
-    if (isAuthenticated) {
-      navigate('/create-listing');
-    } else {
-      navigate('/login');
-    }
+    navigate('/create-listing');
   };
 
   // Fetch wishlist count
@@ -89,6 +85,7 @@ const Navbar = () => {
             >
               Sell
             </button>
+            <Link to="/about" className="transition-colors hover:text-campus-primary">About Us</Link>
             <Link to="/help" className="transition-colors hover:text-campus-primary">Help</Link>
             <Link to="/faq" className="transition-colors hover:text-campus-primary">FAQ</Link>
           </nav>
@@ -180,8 +177,10 @@ const Navbar = () => {
                 >
                   Sell
                 </button>
+                <Link to="/about" className="flex w-full items-center py-2 text-lg font-semibold">About Us</Link>
                 <Link to="/help" className="flex w-full items-center py-2 text-lg font-semibold">Help</Link>
                 <Link to="/faq" className="flex w-full items-center py-2 text-lg font-semibold">FAQ</Link>
+                <Link to="/terms" className="flex w-full items-center py-2 text-lg font-semibold">Terms of Service</Link>
                 
                 {!isAuthenticated ? (
                   <div className="flex flex-col gap-2 mt-4">

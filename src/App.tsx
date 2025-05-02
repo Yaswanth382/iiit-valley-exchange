@@ -18,6 +18,8 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import Profile from "./pages/Profile";
 import Wishlist from "./pages/Wishlist";
+import AboutUs from "./pages/AboutUs";
+import TermsOfService from "./pages/TermsOfService";
 
 // Configure React Query with retry logic
 const queryClient = new QueryClient({
@@ -49,6 +51,8 @@ const App = () => (
             <Route path="/wishlist" element={<ProtectedRoute><Wishlist /></ProtectedRoute>} />
             <Route path="/help" element={<Help />} />
             <Route path="/faq" element={<FAQ />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/terms" element={<TermsOfService />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

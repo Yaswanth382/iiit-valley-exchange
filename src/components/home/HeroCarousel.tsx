@@ -11,19 +11,19 @@ interface CarouselImage {
 
 const carouselImages: CarouselImage[] = [
   {
-    url: "https://i.ibb.co/JM0ZgHX/campus-market-3.jpg",
+    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0011.jpg?updatedAt=1746199321087",
     alt: "Campus Market Image 1"
   },
   {
-    url: "https://i.ibb.co/VcTT5pz/campus-market-4.jpg",
+    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0010.jpg?updatedAt=1746199401187",
     alt: "Campus Market Image 2"
   },
   {
-    url: "https://i.ibb.co/wNRJTS9/campus-market-2.jpg",
+    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0009.jpg?updatedAt=1746199494571",
     alt: "Campus Market Image 3"
   },
   {
-    url: "https://i.ibb.co/DPDxbnJ/campus-market-1.jpg",
+    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0007.jpg",
     alt: "Campus Market Image 4"
   }
 ];
@@ -86,7 +86,7 @@ const HeroCarousel = () => {
                   Browse Products
                 </Button>
               </Link>
-              <Link to="/sell">
+              <Link to="/create-listing">
                 <Button size="lg" variant="outline" className="bg-transparent text-white border-white hover:bg-white/10 px-8">
                   Start Selling
                 </Button>
