@@ -50,42 +50,101 @@ const Wishlist = () => {
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
+      // First get the wishlist items
+      const { data: wishlistData, error: wishlistError } = await supabase
         .from('wishlists')
         .select(`
           id,
-          product_id,
-          products:product_id (
-            id,
-            title,
-            price,
-            category,
-            condition,
-            is_negotiable,
-            created_at,
-            product_images (image_url),
-            profiles:user_id (
-              full_name,
-              phone_number
-            )
-          )
+          product_id
         `)
         .eq('user_id', user.id);
         
-      if (error) {
-        console.error("Error fetching wishlist:", error);
+      if (wishlistError) {
+        console.error("Error fetching wishlist:", wishlistError);
         return [];
       }
       
-      return data.map(item => ({
-        id: item.id,
-        product_id: item.product_id,
-        product: {
-          ...item.products,
-          images: item.products.product_images,
-          seller: item.products.profiles
+      if (!wishlistData.length) return [];
+      
+      // Get product details for each wishlist item
+      const productIds = wishlistData.map(item => item.product_id);
+      
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select(`
+          id,
+          title,
+          price,
+          category,
+          condition,
+          is_negotiable,
+          created_at,
+          user_id
+        `)
+        .in('id', productIds);
+      
+      if (productsError) {
+        console.error("Error fetching products:", productsError);
+        return [];
+      }
+      
+      // Get images for each product
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('product_images')
+        .select('product_id, image_url')
+        .in('product_id', productIds);
+        
+      if (imagesError) {
+        console.error("Error fetching product images:", imagesError);
+        return [];
+      }
+      
+      // Group images by product
+      const imagesByProduct: Record<string, { image_url: string }[]> = {};
+      imagesData.forEach(img => {
+        if (!imagesByProduct[img.product_id]) {
+          imagesByProduct[img.product_id] = [];
         }
-      })) as WishlistItem[];
+        imagesByProduct[img.product_id].push({ image_url: img.image_url });
+      });
+      
+      // Get seller details for each product
+      const sellerIds = [...new Set(productsData.map(product => product.user_id))];
+      
+      const { data: sellersData, error: sellersError } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number')
+        .in('id', sellerIds);
+        
+      if (sellersError) {
+        console.error("Error fetching sellers:", sellersError);
+        return [];
+      }
+      
+      // Map seller data by id
+      const sellerById: Record<string, { full_name: string | null, phone_number: string | null }> = {};
+      sellersData.forEach(seller => {
+        sellerById[seller.id] = {
+          full_name: seller.full_name,
+          phone_number: seller.phone_number
+        };
+      });
+      
+      // Combine all data
+      return wishlistData.map(item => {
+        const product = productsData.find(p => p.id === item.product_id);
+        if (!product) return null;
+        
+        return {
+          id: item.id,
+          product_id: item.product_id,
+          product: {
+            ...product,
+            images: imagesByProduct[product.id] || [],
+            seller: sellerById[product.user_id] || null
+          }
+        };
+      }).filter(Boolean) as WishlistItem[];
     },
     enabled: isAuthenticated
   });

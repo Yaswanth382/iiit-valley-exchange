@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -97,7 +96,8 @@ const Products = () => {
   const { data: products = [], isLoading, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const { data: productsData, error } = await supabase
+      // First fetch all products
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select(`
           id,
@@ -107,35 +107,58 @@ const Products = () => {
           condition,
           is_negotiable,
           created_at,
-          user_id,
-          product_images (image_url),
-          profiles:user_id (
-            full_name,
-            phone_number
-          )
+          user_id
         `)
         .filter('sold', 'eq', false)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        throw error;
-      }
+      if (productsError) throw productsError;
 
-      // Transform the data to match our Product type
-      return productsData.map(product => {
-        // Safely handle the profiles data
-        const seller: ProductProfile | null = product.profiles ? {
-          full_name: product.profiles.full_name || null,
-          phone_number: product.profiles.phone_number || null
-        } : null;
+      // Fetch product images separately
+      const productIds = productsData.map(product => product.id);
+      const { data: imagesData, error: imagesError } = await supabase
+        .from('product_images')
+        .select('product_id, image_url')
+        .in('product_id', productIds);
 
-        return {
-          ...product,
-          seller,
-          images: product.product_images,
-          is_in_wishlist: wishlistIds.includes(product.id)
+      if (imagesError) throw imagesError;
+
+      // Organize images by product_id
+      const imagesByProduct: Record<string, { image_url: string }[]> = {};
+      imagesData.forEach(img => {
+        if (!imagesByProduct[img.product_id]) {
+          imagesByProduct[img.product_id] = [];
+        }
+        imagesByProduct[img.product_id].push({ image_url: img.image_url });
+      });
+
+      // Fetch seller profiles
+      const userIds = [...new Set(productsData.map(product => product.user_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone_number')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Organize profiles by id
+      const profilesById: Record<string, ProductProfile> = {};
+      profilesData.forEach(profile => {
+        profilesById[profile.id] = {
+          full_name: profile.full_name,
+          phone_number: profile.phone_number
         };
       });
+
+      // Combine all data
+      return productsData.map(product => {
+        return {
+          ...product,
+          images: imagesByProduct[product.id] || [],
+          seller: profilesById[product.user_id] || null,
+          is_in_wishlist: wishlistIds.includes(product.id)
+        };
+      }) as Product[];
     },
     enabled: true
   });
@@ -252,11 +275,11 @@ const Products = () => {
     const encodedMessage = encodeURIComponent(message);
     
     // Format phone number to remove spaces and ensure it has international format
-    const formattedNumber = phoneNumber.startsWith('+') 
+    const formattedNumber = phoneNumber?.startsWith('+') 
       ? phoneNumber.replace(/\s+/g, '') 
-      : '+91' + phoneNumber.replace(/\s+/g, '');
+      : '+91' + phoneNumber?.replace(/\s+/g, '');
       
-    return `https://wa.me/${formattedNumber.replace('+', '')}?text=${encodedMessage}`;
+    return `https://wa.me/${formattedNumber?.replace('+', '')}?text=${encodedMessage}`;
   };
 
   return (

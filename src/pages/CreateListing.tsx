@@ -132,6 +132,8 @@ const CreateListing = () => {
     setIsSubmitting(true);
 
     try {
+      console.log("Creating product with user ID:", user.id);
+      
       // 1. Insert product data
       const { data: productData, error: productError } = await supabase
         .from('products')
@@ -143,24 +145,54 @@ const CreateListing = () => {
           condition: values.condition,
           is_negotiable: values.isNegotiable,
           pickup_location: values.pickupLocation || null,
-          user_id: user.id
+          user_id: user.id,
+          sold: false
         })
         .select()
         .single();
 
-      if (productError) throw productError;
+      if (productError) {
+        console.error("Product creation error:", productError);
+        throw productError;
+      }
       
       // 2. Upload images and create product_images records
       const productId = productData.id;
+      
+      if (!productId) {
+        throw new Error("Failed to get product ID after creation");
+      }
+      
+      // Create a bucket if it doesn't exist
+      const { data: bucketData, error: bucketError } = await supabase.storage
+        .getBucket('product-images');
+      
+      if (bucketError && bucketError.message.includes('The resource was not found')) {
+        // Create bucket if not found
+        const { error: createBucketError } = await supabase.storage
+          .createBucket('product-images', {
+            public: true,
+            fileSizeLimit: 5242880 // 5MB
+          });
+        
+        if (createBucketError) {
+          console.error("Error creating bucket:", createBucketError);
+          throw createBucketError;
+        }
+      }
+      
       const uploadPromises = images.map(async (image, index) => {
-        const filePath = `products/${productId}/${Date.now()}-${index}`;
+        const filePath = `${productId}/${Date.now()}-${index}`;
         
         // Upload file to storage
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('product-images')
           .upload(filePath, image);
         
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          throw uploadError;
+        }
         
         // Get public URL
         const { data: urlData } = supabase.storage
@@ -175,7 +207,10 @@ const CreateListing = () => {
             image_url: urlData.publicUrl
           });
         
-        if (imageError) throw imageError;
+        if (imageError) {
+          console.error("Image record error:", imageError);
+          throw imageError;
+        }
       });
       
       await Promise.all(uploadPromises);
