@@ -10,7 +10,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { Search, Menu, Heart } from "lucide-react";
+import { Menu, Heart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
@@ -92,15 +92,6 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <form className="hidden md:flex relative w-[200px] lg:w-[300px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search products..."
-              className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-8 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-            />
-          </form>
-
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
               <Link to="/wishlist">
@@ -161,14 +152,6 @@ const Navbar = () => {
                 <SheetDescription>Buy and sell within your campus community</SheetDescription>
               </SheetHeader>
               <div className="grid gap-2 py-6">
-                <form className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="search"
-                    placeholder="Search products..."
-                    className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-8 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </form>
                 <Link to="/" className="flex w-full items-center py-2 text-lg font-semibold">Home</Link>
                 <Link to="/products" className="flex w-full items-center py-2 text-lg font-semibold">Products</Link>
                 <button 

@@ -9,34 +9,19 @@ interface CarouselImage {
   alt: string;
 }
 
-const carouselImages: CarouselImage[] = [
-  {
-    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0011.jpg?updatedAt=1746199321087",
-    alt: "Campus Market Image 1"
-  },
-  {
-    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0010.jpg?updatedAt=1746199401187",
-    alt: "Campus Market Image 2"
-  },
-  {
-    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0009.jpg?updatedAt=1746199494571",
-    alt: "Campus Market Image 3"
-  },
-  {
-    url: "https://ik.imagekit.io/btzamftjv/IMG-20250426-WA0007.jpg",
-    alt: "Campus Market Image 4"
-  }
-];
+interface HeroCarouselProps {
+  images: CarouselImage[];
+}
 
-const HeroCarousel = () => {
+const HeroCarousel = ({ images }: HeroCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const goToNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex + 1) % carouselImages.length);
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
   };
 
   const goToPrevious = () => {
-    setCurrentIndex((prevIndex) => (prevIndex - 1 + carouselImages.length) % carouselImages.length);
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + images.length) % images.length);
   };
 
   const goToSlide = (slideIndex: number) => {
@@ -54,7 +39,7 @@ const HeroCarousel = () => {
   return (
     <div className="relative w-full overflow-hidden h-[500px] md:h-[600px]">
       {/* Carousel images */}
-      {carouselImages.map((image, index) => (
+      {images.map((image, index) => (
         <div
           key={index}
           className={`absolute top-0 left-0 w-full h-full transition-opacity duration-1000 ${
@@ -114,7 +99,7 @@ const HeroCarousel = () => {
 
       {/* Indicators */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex space-x-2">
-        {carouselImages.map((_, index) => (
+        {images.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
