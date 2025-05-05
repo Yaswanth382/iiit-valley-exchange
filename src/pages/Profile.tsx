@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -195,10 +194,12 @@ const Profile = () => {
               </div>
               
               <div className="flex flex-col gap-2">
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Edit className="h-4 w-4" />
-                  Edit Profile
-                </Button>
+                <Link to="/edit-profile">
+                  <Button variant="outline" className="flex items-center gap-2">
+                    <Edit className="h-4 w-4" />
+                    Edit Profile
+                  </Button>
+                </Link>
                 <Link to="/create-listing">
                   <Button className="w-full flex items-center gap-2 bg-campus-primary hover:bg-campus-dark">
                     <PlusCircle className="h-4 w-4" />
@@ -442,7 +443,9 @@ const Profile = () => {
                     <p className="text-sm text-gray-500">
                       Update your personal information and contact details.
                     </p>
-                    <Button variant="outline">Edit Personal Information</Button>
+                    <Link to="/edit-profile">
+                      <Button variant="outline">Edit Personal Information</Button>
+                    </Link>
                   </div>
                   
                   <div className="space-y-2">
