@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import SearchBar from "@/components/SearchBar";
 
 // Define the type for a product
 type ProductProfile = {
@@ -55,10 +56,11 @@ const conditions = ["New", "Like New", "Good", "Used", "Fair"];
 const Products = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
+  const searchParam = searchParams.get("search");
   const { user, isAuthenticated } = useAuth();
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(searchParam || "");
   const [selectedCategory, setSelectedCategory] = useState(categoryParam || "All Categories");
   const [priceRange, setPriceRange] = useState([0, 15000]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
@@ -66,6 +68,13 @@ const Products = () => {
   const [sortBy, setSortBy] = useState("newest");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+
+  // Update searchTerm when searchParam changes
+  useEffect(() => {
+    if (searchParam) {
+      setSearchTerm(searchParam);
+    }
+  }, [searchParam]);
 
   // Fetch wishlist items for the current user
   useEffect(() => {
@@ -94,10 +103,10 @@ const Products = () => {
 
   // Fetch products from Supabase
   const { data: products = [], isLoading, refetch } = useQuery({
-    queryKey: ['products'],
+    queryKey: ['products', searchTerm],
     queryFn: async () => {
       // First fetch all products
-      const { data: productsData, error: productsError } = await supabase
+      let query = supabase
         .from('products')
         .select(`
           id,
@@ -109,8 +118,14 @@ const Products = () => {
           created_at,
           user_id
         `)
-        .filter('sold', 'eq', false)
-        .order('created_at', { ascending: false });
+        .filter('sold', 'eq', false);
+        
+      // Apply search term filter if provided
+      if (searchTerm) {
+        query = query.ilike('title', `%${searchTerm}%`);
+      }
+        
+      const { data: productsData, error: productsError } = await query.order('created_at', { ascending: false });
 
       if (productsError) throw productsError;
 
@@ -142,7 +157,7 @@ const Products = () => {
       if (profilesError) throw profilesError;
 
       // Organize profiles by id
-      const profilesById: Record<string, ProductProfile> = {};
+      const profilesById: Record<string, any> = {};
       profilesData.forEach(profile => {
         profilesById[profile.id] = {
           full_name: profile.full_name,
@@ -158,7 +173,7 @@ const Products = () => {
           seller: profilesById[product.user_id] || null,
           is_in_wishlist: wishlistIds.includes(product.id)
         };
-      }) as Product[];
+      });
     },
     enabled: true
   });
@@ -210,13 +225,7 @@ const Products = () => {
 
   // Filter products based on all criteria
   const filteredProducts = products.filter((product) => {
-    // Search term filter
-    if (
-      searchTerm &&
-      !product.title.toLowerCase().includes(searchTerm.toLowerCase())
-    ) {
-      return false;
-    }
+    // Search term filter is now handled by the backend query
 
     // Category filter
     if (
@@ -282,6 +291,13 @@ const Products = () => {
     return `https://wa.me/${formattedNumber?.replace('+', '')}?text=${encodedMessage}`;
   };
 
+  // Handle search submit
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // This will now trigger a refetch with the new search term
+    refetch();
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
@@ -296,7 +312,7 @@ const Products = () => {
               </p>
             </div>
             <Link to={isAuthenticated ? "/create-listing" : "/login"}>
-              <Button className="bg-campus-primary hover:bg-campus-dark gap-2">
+              <Button className="bg-[#800000] hover:bg-[#600000] gap-2">
                 <PlusCircle className="h-4 w-4" />
                 <span>Sell an Item</span>
               </Button>
@@ -306,14 +322,18 @@ const Products = () => {
           {/* Search and filter bar */}
           <div className="flex flex-col lg:flex-row justify-between items-center py-4 gap-4">
             <div className="relative w-full lg:w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="search"
-                placeholder="Search products..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <form onSubmit={handleSearchSubmit}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="search"
+                    placeholder="Search products..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </form>
             </div>
 
             <div className="flex items-center gap-2 w-full lg:w-auto">
@@ -465,16 +485,17 @@ const Products = () => {
             <div className="col-span-1 lg:col-span-3">
               <div className="mb-4">
                 <p className="text-sm text-gray-500">
-                  Showing {sortedProducts.length} results
+                  Showing {filteredProducts.length} results
+                  {searchTerm && <span> for "{searchTerm}"</span>}
                 </p>
               </div>
               
               {isLoading ? (
                 <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-campus-primary mx-auto"></div>
+                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#800000] mx-auto"></div>
                   <p className="mt-4 text-gray-600">Loading products...</p>
                 </div>
-              ) : sortedProducts.length === 0 ? (
+              ) : filteredProducts.length === 0 ? (
                 <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                   <h3 className="text-lg font-semibold mb-2">No products found</h3>
                   <p className="text-gray-500">

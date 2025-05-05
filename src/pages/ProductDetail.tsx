@@ -29,14 +29,6 @@ interface ProductImage {
   image_url: string;
 }
 
-interface ProductProfile {
-  id: string;
-  full_name: string | null;
-  student_id: string | null;
-  phone_number: string | null;
-  hostel_details: string | null;
-}
-
 interface Product {
   id: string;
   title: string;
@@ -49,8 +41,15 @@ interface Product {
   user_id: string;
   created_at: string;
   updated_at: string;
-  profiles: ProductProfile;
   product_images: ProductImage[];
+  // Add profiles field to match the query
+  profiles: {
+    id: string;
+    full_name: string | null;
+    student_id: string | null;
+    phone_number: string | null;
+    hostel_details: string | null;
+  } | null;
 }
 
 const ProductDetail = () => {
@@ -68,23 +67,50 @@ const ProductDetail = () => {
       
       console.log("Fetching product with ID:", id);
       
-      const { data, error } = await supabase
+      // First get the product itself
+      const { data: productData, error: productError } = await supabase
         .from("products")
-        .select(`
-          *,
-          profiles:user_id (*),
-          product_images (*)
-        `)
+        .select("*")
         .eq("id", id)
         .single();
 
-      if (error) {
-        console.error("Error fetching product:", error);
-        throw error;
+      if (productError) {
+        console.error("Error fetching product:", productError);
+        throw productError;
       }
       
-      console.log("Product data:", data);
-      return data as unknown as Product;
+      // Then fetch the seller profile
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", productData.user_id)
+        .single();
+        
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error("Error fetching profile:", profileError);
+        // Don't throw here, just proceed with null profile
+      }
+      
+      // Fetch the product images
+      const { data: imageData, error: imageError } = await supabase
+        .from("product_images")
+        .select("*")
+        .eq("product_id", id);
+        
+      if (imageError) {
+        console.error("Error fetching images:", imageError);
+        // Don't throw here, just proceed with empty images
+      }
+      
+      // Combine all the data
+      const fullProduct: Product = {
+        ...productData,
+        profiles: profileData || null,
+        product_images: imageData || []
+      };
+      
+      console.log("Full product data:", fullProduct);
+      return fullProduct;
     },
     retry: 1,
   });
@@ -123,7 +149,7 @@ const ProductDetail = () => {
         <Navbar />
         <main className="flex-grow flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-campus-primary mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#800000] mx-auto"></div>
             <p className="mt-4 text-gray-600">Loading product details...</p>
           </div>
         </main>
@@ -238,7 +264,7 @@ const ProductDetail = () => {
                 </Link>
               </li>
               <li className="text-gray-400">/</li>
-              <li className="text-campus-primary font-medium truncate">
+              <li className="text-[#800000] font-medium truncate">
                 {product.title}
               </li>
             </ol>
@@ -276,7 +302,7 @@ const ProductDetail = () => {
                             key={index}
                             onClick={() => setCurrentImage(index)}
                             className={`rounded-md overflow-hidden border-2 flex-shrink-0 
-                              ${currentImage === index ? 'border-campus-primary' : 'border-transparent'}`}
+                              ${currentImage === index ? 'border-[#800000]' : 'border-transparent'}`}
                           >
                             <img
                               src={image.image_url}
@@ -302,7 +328,7 @@ const ProductDetail = () => {
                     <h1 className="text-2xl md:text-3xl font-bold text-gray-900">{product.title}</h1>
                     <div className="flex flex-wrap gap-2 mt-2">
                       <Badge variant="outline">{product.category}</Badge>
-                      <Badge className="bg-campus-primary">{product.condition}</Badge>
+                      <Badge className="bg-[#800000]">{product.condition}</Badge>
                       {product.is_negotiable && <Badge variant="outline">Negotiable</Badge>}
                     </div>
                   </div>
@@ -317,7 +343,7 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="mt-4">
-                  <p className="text-3xl font-bold text-campus-primary">₹{product.price}</p>
+                  <p className="text-3xl font-bold text-[#800000]">₹{product.price}</p>
                   <p className="text-sm text-gray-500 mt-1">
                     Listed on {formatDate(product.created_at)}
                   </p>
@@ -341,8 +367,8 @@ const ProductDetail = () => {
                 <div className="mt-6">
                   <h3 className="font-semibold text-lg mb-2">Seller Information</h3>
                   <div className="flex items-center">
-                    <div className="bg-campus-primary/10 rounded-full p-2 mr-3">
-                      <div className="w-10 h-10 rounded-full bg-campus-primary text-white flex items-center justify-center text-lg font-medium">
+                    <div className="bg-[#800000]/10 rounded-full p-2 mr-3">
+                      <div className="w-10 h-10 rounded-full bg-[#800000] text-white flex items-center justify-center text-lg font-medium">
                         {product.profiles?.full_name?.charAt(0) || "?"}
                       </div>
                     </div>
@@ -409,7 +435,7 @@ const ProductDetail = () => {
                 </div>
 
                 <div className="mt-4 text-center">
-                  <Link to="/products" className="text-campus-primary hover:underline inline-flex items-center">
+                  <Link to="/products" className="text-[#800000] hover:underline inline-flex items-center">
                     <ChevronLeft className="h-4 w-4 mr-1" />
                     Back to Products
                   </Link>
